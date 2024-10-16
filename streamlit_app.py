@@ -3,87 +3,80 @@ import numpy as np
 import random
 import time
 
-# Constants
-WIDTH = 20
-HEIGHT = 20
+# Initialize the game state
+def init_game():
+    return {
+        "snake": [(5, 5)],
+        "direction": (0, 1),  # Start moving right
+        "food": (random.randint(0, 9), random.randint(0, 9)),
+        "score": 0,
+        "game_over": False
+    }
 
-# Game state
-if 'snake' not in st.session_state:
-    st.session_state.snake = [(10, 10)]
-    st.session_state.direction = (0, 1)  # Start moving right
-    st.session_state.food = (random.randint(0, HEIGHT - 1), random.randint(0, WIDTH - 1))
-    st.session_state.score = 0
-    st.session_state.game_over = False
+# Update the game state
+def update_game(state):
+    if state["game_over"]:
+        return state
 
-# Functions
-def reset_game():
-    st.session_state.snake = [(10, 10)]
-    st.session_state.direction = (0, 1)
-    st.session_state.food = (random.randint(0, HEIGHT - 1), random.randint(0, WIDTH - 1))
-    st.session_state.score = 0
-    st.session_state.game_over = False
+    # Move the snake
+    new_head = (state["snake"][0][0] + state["direction"][0],
+                state["snake"][0][1] + state["direction"][1])
+    
+    # Check for collisions
+    if (new_head in state["snake"] or
+        new_head[0] < 0 or new_head[0] >= 10 or
+        new_head[1] < 0 or new_head[1] >= 10):
+        state["game_over"] = True
+        return state
 
-def move_snake():
-    head_x, head_y = st.session_state.snake[0]
-    dir_x, dir_y = st.session_state.direction
+    # Add new head to the snake
+    state["snake"].insert(0, new_head)
 
-    # New head position
-    new_head = (head_x + dir_x, head_y + dir_y)
-
-    # Check for collision with walls
-    if (new_head[0] < 0 or new_head[0] >= HEIGHT or
-        new_head[1] < 0 or new_head[1] >= WIDTH or
-        new_head in st.session_state.snake):
-        st.session_state.game_over = True
-        return
-
-    # Check for food
-    if new_head == st.session_state.food:
-        st.session_state.snake.insert(0, new_head)  # Grow the snake
-        st.session_state.food = (random.randint(0, HEIGHT - 1), random.randint(0, WIDTH - 1))
-        st.session_state.score += 1
+    # Check for food collision
+    if new_head == state["food"]:
+        state["score"] += 1
+        state["food"] = (random.randint(0, 9), random.randint(0, 9))
     else:
-        st.session_state.snake.insert(0, new_head)  # Move the snake
-        st.session_state.snake.pop()  # Remove last segment
+        state["snake"].pop()  # Remove the last segment of the snake
 
-def display_board():
-    board = np.zeros((HEIGHT, WIDTH), dtype=int)
-    for segment in st.session_state.snake:
-        board[segment] = 1  # Snake segment
-    board[st.session_state.food] = 2  # Food
+    return state
 
-    st.write(board)
+# Streamlit app
+def main():
+    st.title("Snake Game")
 
-# Control Direction
-def set_direction(new_direction):
-    opposite_direction = (-st.session_state.direction[0], -st.session_state.direction[1])
-    if new_direction != opposite_direction:
-        st.session_state.direction = new_direction
+    # Initialize the game state
+    if 'game_state' not in st.session_state:
+        st.session_state.game_state = init_game()
 
-# Streamlit UI
-st.title("Snake Game")
+    # Get user input for direction
+    direction = st.selectbox("Choose Direction", ["Up", "Down", "Left", "Right"], index=1)
+    
+    if direction == "Up":
+        st.session_state.game_state["direction"] = (-1, 0)
+    elif direction == "Down":
+        st.session_state.game_state["direction"] = (1, 0)
+    elif direction == "Left":
+        st.session_state.game_state["direction"] = (0, -1)
+    elif direction == "Right":
+        st.session_state.game_state["direction"] = (0, 1)
 
-if st.button("Start New Game"):
-    reset_game()
+    # Update the game state
+    st.session_state.game_state = update_game(st.session_state.game_state)
 
-if st.session_state.game_over:
-    st.error("Game Over! Your score was: {}".format(st.session_state.score))
-    if st.button("Play Again"):
-        reset_game()
-else:
-    if st.button("Up"):
-        set_direction((-1, 0))
-    if st.button("Down"):
-        set_direction((1, 0))
-    if st.button("Left"):
-        set_direction((0, -1))
-    if st.button("Right"):
-        set_direction((0, 1))
+    # Render the game board
+    board = np.zeros((10, 10))
 
-    move_snake()
-    display_board()
+    for segment in st.session_state.game_state["snake"]:
+        board[segment] = 1  # Snake body
+    board[st.session_state.game_state["food"]] = 2  # Food
 
-    st.write("Score: {}".format(st.session_state.score))
+    st.write("Score:", st.session_state.game_state["score"])
+    st.write("Game Over!" if st.session_state.game_state["game_over"] else "")
+    st.table(board)
 
-    # Automatically refresh the game state every 500ms
-    time.sleep(0.5)
+    # Refresh the game every second
+    time.sleep(1)
+
+if __name__ == "__main__":
+    main()
